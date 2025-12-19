@@ -81,19 +81,19 @@
             databaseOpenRequest.onupgradeneeded = () => {
                 let database = databaseOpenRequest.result
                 createOneToOneObjectStore = (database, objectStoreName) => {
-                    const store = db.createObjectStore(objectStoreName, { keyPath: "id" })
+                    const store = database.createObjectStore(objectStoreName, { keyPath: "id" })
                     store.createIndex("destination_index", "destination", { unique: false })
                 }
                 database.createObjectStore("projects", {keyPath: "id"})
-                createOneToOneObjectStore("sceneBackgroundImage")
-                createOneToOneObjectStore("scenePrimaryImage")
-                createOneToOneObjectStore("sceneSecondaryImage")
-                createOneToOneObjectStore("sceneMusic")
-                createOneToOneObjectStore("sceneSound")
-                createOneToOneObjectStore("primaryChoiceLink")
-                createOneToOneObjectStore("secondaryChoiceLink")
-                createOneToOneObjectStore("tetriaryChoiceLink")
-                createOneToOneObjectStore("translatedStrings")
+                createOneToOneObjectStore(database, "sceneBackgroundImage")
+                createOneToOneObjectStore(database, "scenePrimaryImage")
+                createOneToOneObjectStore(database, "sceneSecondaryImage")
+                createOneToOneObjectStore(database, "sceneMusic")
+                createOneToOneObjectStore(database, "sceneSound")
+                createOneToOneObjectStore(database, "primaryChoiceLink")
+                createOneToOneObjectStore(database, "secondaryChoiceLink")
+                createOneToOneObjectStore(database, "tetriaryChoiceLink")
+                createOneToOneObjectStore(database, "translatedStrings")
             }
             databaseOpenRequest.onsuccess = () => {
                 let database = databaseOpenRequest.result
