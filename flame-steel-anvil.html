@@ -2,91 +2,104 @@
  </head>
  <body>
     <script>
-        const none = "<NONE>"
-        var database = indexedDB.open("database", 1)
-        var state = {
-            "project" : "<NONE>",
-            "image" : "<NONE>",
-            "choice" : "<NONE>",
-            "scene" : "<NONE>"
+        initializeWithDatabase = (database, verbose) => {
+            debugPrint = (info) => {
+                if (verbose) {
+                    console.log(info)
+                }
+            }
+            debugPrint(database)
+            const none = "<NONE>"
+            const doID = () => {
+                return crypto.randomUUID();
+            }
+            const doProject = () => {
+                let entryPointScene = doID()
+                let scenes = new Set()
+                scenes.add(entryPointScene)
+                return {
+                    "scenes" : scenes,
+                    "sceneBackgroundImage" : {},
+                    "scenePrimaryImage" : {},
+                    "sceneSecondaryImage" : {},
+                    "sceneMusic" : {},
+                    "sceneSound" : {},
+                    "primaryChoiceLink" : {},
+                    "secondaryChoiceLink" : {},
+                    "tetriaryChoiceLink" : {},
+                    "translatedStrings" : {}
+                }
+            }
+            let state = {
+                "database" : database,
+                "project" : none,
+                "image" : none,
+                "choice" : none,
+                "scene" : none
+            }
+            const doDataFromImage = (image) => {
+            }
+            const listOfProjects = () => {
+            }
+            const createProject = (id) => {
+            }
+            const selectProject = (id) => {
+            }
+            const deleteSelectedProject = () => {
+            }
+            const uploadImage = (image) => {
+            }
+            const selectImage = (id) => {
+            }
+            const removeSelectedImage = () => {
+            }
+            const addSelectedImageToScene = (position) => {
+            }
+            const removeSelectedImageFromScene = () => {
+            }
+            const addChoice = () => {
+            }
+            const selectChoice = (id) => {
+            }
+            const deleteSelectedChoice = () => {
+            }
+            const switchToNextScene = () => {
+            }
+            const switchToPreviousScene = () => {
+            }
+            const renderState = (state) => {
+                debugPrint("renderState")
+                let database = state.database
+                let transaction = database.transaction("projects", "readwrite")
+                let projects = transaction.objectStore("projects")
+                debugPrint(projects)
+            }
+            renderState(state)
         }
-        var project = {
-            "entryPointScene" : none,
-            "scenes" : {},
-            "choices" : {},
-            "images" : {},
-            "links" : {},
-            "texts" : {}
-        }
-        const doProject = () => {
-            const entryPointScene = doScene()
-            return {
-                "entryPointScene" : entryPointScene.id,
-                "scenes" : {},
-                "choices" : {},
-                "images" : {},
-                "links" : {},
-                "texts" : {}
+        main = (options) => {
+            let databaseOpenRequest = indexedDB.open("database", 1)
+            databaseOpenRequest.onupgradeneeded = () => {
+                let database = databaseOpenRequest.result
+                createOneToOneObjectStore = (database, objectStoreName) => {
+                    const store = db.createObjectStore(objectStoreName, { keyPath: "id" })
+                    store.createIndex("destination_index", "destination", { unique: false })
+                }
+                database.createObjectStore("projects", {keyPath: "id"})
+                createOneToOneObjectStore("sceneBackgroundImage")
+                createOneToOneObjectStore("scenePrimaryImage")
+                createOneToOneObjectStore("sceneSecondaryImage")
+                createOneToOneObjectStore("sceneMusic")
+                createOneToOneObjectStore("sceneSound")
+                createOneToOneObjectStore("primaryChoiceLink")
+                createOneToOneObjectStore("secondaryChoiceLink")
+                createOneToOneObjectStore("tetriaryChoiceLink")
+                createOneToOneObjectStore("translatedStrings")
+            }
+            databaseOpenRequest.onsuccess = () => {
+                let database = databaseOpenRequest.result
+                initializeWithDatabase(database, options.verbose)
             }
         }
-        const doScene = () => {
-            return {
-                "id" : doID(),
-                "images" : [],
-                "choices" : []
-            }
-        }
-        const doChoice = () => {
-            return {
-                "id" : doID()
-            }
-        }
-        const doLink = (source, destination) => {
-            return {
-                "source" : source,
-                "destination" : destination
-            }
-        }
-        const doDataFromImage = (image) => {
-
-        }
-        const doImage = (
-            image
-        ) => {
-            return {
-                "id" : doID()
-            }
-        }
-        const listOfProjects = () => {
-        }
-        const createProject = (id) => {
-        }
-        const selectProject = (id) => {
-        }
-        const deleteSelectedProject = () => {
-        }
-        const uploadImage = (image) => {
-        }
-        const selectImage = (id) => {
-        }
-        const removeSelectedImage = () => {
-        }
-        const addSelectedImageToScene = (position) => {
-        }
-        const removeSelectedImageFromScene = () => {
-        }
-        const addChoice = () => {
-        }
-        const selectChoice = (id) => {
-        }
-        const deleteSelectedChoice = () => {
-        }
-        const switchToNextScene = () => {
-        }
-        const switchToPreviousScene = () => {
-        }
-        const renderState = (state) => {
-            renderProject(state.project)
-        } 
+        main({"verbose" : true})
     </script>
  </body>
