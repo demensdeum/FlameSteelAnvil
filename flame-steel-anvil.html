@@ -1,0 +1,92 @@
+ <head>
+ </head>
+ <body>
+    <script>
+        const none = "<NONE>"
+        var database = indexedDB.open("database", 1)
+        var state = {
+            "project" : "<NONE>",
+            "image" : "<NONE>",
+            "choice" : "<NONE>",
+            "scene" : "<NONE>"
+        }
+        var project = {
+            "entryPointScene" : none,
+            "scenes" : {},
+            "choices" : {},
+            "images" : {},
+            "links" : {},
+            "texts" : {}
+        }
+        const doProject = () => {
+            const entryPointScene = doScene()
+            return {
+                "entryPointScene" : entryPointScene.id,
+                "scenes" : {},
+                "choices" : {},
+                "images" : {},
+                "links" : {},
+                "texts" : {}
+            }
+        }
+        const doScene = () => {
+            return {
+                "id" : doID(),
+                "images" : [],
+                "choices" : []
+            }
+        }
+        const doChoice = () => {
+            return {
+                "id" : doID()
+            }
+        }
+        const doLink = (source, destination) => {
+            return {
+                "source" : source,
+                "destination" : destination
+            }
+        }
+        const doDataFromImage = (image) => {
+
+        }
+        const doImage = (
+            image
+        ) => {
+            return {
+                "id" : doID()
+            }
+        }
+        const listOfProjects = () => {
+        }
+        const createProject = (id) => {
+        }
+        const selectProject = (id) => {
+        }
+        const deleteSelectedProject = () => {
+        }
+        const uploadImage = (image) => {
+        }
+        const selectImage = (id) => {
+        }
+        const removeSelectedImage = () => {
+        }
+        const addSelectedImageToScene = (position) => {
+        }
+        const removeSelectedImageFromScene = () => {
+        }
+        const addChoice = () => {
+        }
+        const selectChoice = (id) => {
+        }
+        const deleteSelectedChoice = () => {
+        }
+        const switchToNextScene = () => {
+        }
+        const switchToPreviousScene = () => {
+        }
+        const renderState = (state) => {
+            renderProject(state.project)
+        } 
+    </script>
+ </body>
