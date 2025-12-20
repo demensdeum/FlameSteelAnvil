@@ -13,23 +13,6 @@
             const doID = () => {
                 return crypto.randomUUID();
             }
-            const doProject = () => {
-                let entryPointScene = doID()
-                let scenes = new Set()
-                scenes.add(entryPointScene)
-                return {
-                    "scenes" : scenes,
-                    "sceneBackgroundImage" : {},
-                    "scenePrimaryImage" : {},
-                    "sceneSecondaryImage" : {},
-                    "sceneMusic" : {},
-                    "sceneSound" : {},
-                    "primaryChoiceLink" : {},
-                    "secondaryChoiceLink" : {},
-                    "tetriaryChoiceLink" : {},
-                    "translatedStrings" : {}
-                }
-            }
             let state = {
                 "database" : database,
                 "project" : none,
@@ -37,13 +20,47 @@
                 "choice" : none,
                 "scene" : none
             }
-            const doDataFromImage = (image) => {
+            const listOfProjects = (completion) => {
+                let database = state.database
+                let transaction = database.transaction("projects", "readwrite")
+                let projectsObjectStore = transaction.objectStore("projects")
+                let request = projectsObjectStore.openCursor()
+                var projects = []
+                request.onsuccess = function() {
+                    let cursor = request.result
+                    if (cursor) {
+                        let key = cursor.key
+                        let value = cursor.value
+                        debugPrint([key, value])
+                        projects.push(value)
+                        cursor.continue()
+                    } else {
+                        debugPrint("No more projects")
+                        completion(projects)
+                    }
+                }                
             }
-            const listOfProjects = () => {
-            }
-            const createProject = (id) => {
+            const createNewProject = () => {
+                let transaction = database.transaction("projects", "readwrite")
+                let projects = transaction.objectStore("projects")
+
+                let project = {
+                    id: doID(),
+                }
+
+                let request = projects.add(project)
+                request.onsuccess = () => {
+                    debugPrint("Project added to the store", request.result)
+                    renderState()
+                }
+
+                request.onerror = () => {
+                    debugPrint("Project added to the store", request.error)
+                }                
             }
             const selectProject = (id) => {
+                state.project = id
+                debugPrint("selectProject: " + id)
             }
             const deleteSelectedProject = () => {
             }
@@ -67,12 +84,47 @@
             }
             const switchToPreviousScene = () => {
             }
+            const renderProjectsSection = () => {
+                let projectsSection = document.getElementById('projectsSection');
+                projectsSection.innerHTML = ''
+                
+                let newProjectButton = document.createElement("button")
+                newProjectButton.textContent = "New Project"
+                newProjectButton.onclick = createNewProject
+                projectsSection.appendChild(newProjectButton)
+
+                let deleteProjectButton = document.createElement("button")
+                deleteProjectButton.textContent = "Delete Project"
+                deleteProjectButton.onclick = deleteSelectedProject
+                projectsSection.appendChild(deleteProjectButton)
+
+                let br = document.createElement("br")
+                projectsSection.appendChild(br)
+
+                listOfProjects((projects) => {
+                    debugPrint(projects)
+                    let select = document.createElement('select')
+                    select.onchange = () => {
+                        selectProject(select.value)
+                    }
+                    if (projects.length > 0) {
+                        projects.forEach(e => {
+                            let option = document.createElement('option')
+                            option.textContent = e.id
+                            select.appendChild(option)
+                        })
+                        projectsSection.appendChild(select)
+                    } 
+                    else {
+                        let p = document.createElement('p')
+                        p.textContent = "No projects"
+                        projectsSection.appendChild(p)
+                    }
+                })
+            }
             const renderState = (state) => {
                 debugPrint("renderState")
-                let database = state.database
-                let transaction = database.transaction("projects", "readwrite")
-                let projects = transaction.objectStore("projects")
-                debugPrint(projects)
+                renderProjectsSection()
             }
             renderState(state)
         }
@@ -102,4 +154,5 @@
         }
         main({"verbose" : true})
     </script>
+    <div id="projectsSection">Loading list of projects...</div>
  </body>
