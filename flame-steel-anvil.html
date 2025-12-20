@@ -11,7 +11,12 @@
             debugPrint(database)
             const none = "<NONE>"
             const doID = () => {
-                return crypto.randomUUID();
+                const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                    let result = '';
+                    for (let i = 0; i < 16; i++) {
+                        result += chars.charAt(Math.floor(Math.random() * chars.length));
+                    }
+                return result;
             }
             let state = {
                 "database" : database,
@@ -137,9 +142,11 @@
                     store.createIndex("destination_index", "destination", { unique: false })
                 }
                 database.createObjectStore("projects", {keyPath: "id"})
+                createOneToOneObjectStore(database, "scenes")
                 createOneToOneObjectStore(database, "sceneBackgroundImage")
                 createOneToOneObjectStore(database, "scenePrimaryImage")
                 createOneToOneObjectStore(database, "sceneSecondaryImage")
+                createOneToOneObjectStore(database, "sceneTeriaryImage")
                 createOneToOneObjectStore(database, "sceneMusic")
                 createOneToOneObjectStore(database, "sceneSound")
                 createOneToOneObjectStore(database, "primaryChoiceLink")
