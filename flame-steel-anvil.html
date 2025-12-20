@@ -104,7 +104,38 @@
                     }
                 }
             }
-            const uploadImage = (image) => {
+            const uploadFile = (file) => {
+                if (!file) return
+                let transaction = database.transaction("blob", "readwrite")
+                let blob = transaction.objectStore("blob")
+
+                let blobID = doID()
+                const item = {
+                    id: blobID,
+                    data: file
+                }
+
+                debugPrint(blobID)
+
+                let request = blob.add(item)
+                request.onsuccess = () => {
+                    debugPrint(`blob uploaded: ${blobID}`)
+
+                    let transaction = database.transaction("backgrounds", "readwrite")
+                    let backgrounds = transaction.objectStore("backgrounds")
+
+                    const item = {
+                        id: blobID
+                    }
+
+                    let request = backgrounds.add(item)
+                    request.onsuccess = () => {
+                        renderState()
+                    }
+                    request.onerror = () => {
+                        debugPrint(request.error)
+                    }
+                }
             }
             const selectImage = (id) => {
             }
@@ -189,6 +220,10 @@
                     }
                 }
             }
+            const selectBackground = (background) => {
+                sceneBackgroundImage[state.scene] = background
+                renderState()
+            }
             const renderSceneBackgroundSection = (completion) => {
                 let liveEditorSection = document.getElementById('liveEditorSection');
                 liveEditorSection.innerHTML = ''
@@ -241,10 +276,15 @@
                             liveEditorSection.appendChild(p)
                         }
 
-                        let uploadBackgroundImageButton = document.createElement("button")
-                        uploadBackgroundImageButton.textContent = "Upload Background Image"
-                        uploadBackgroundImageButton.onclick = uploadBackgroundImage
-                        liveEditorSection.appendChild(uploadBackgroundImageButton)
+                        let uploadBackgroundImageInput = document.createElement('input')
+                        uploadBackgroundImageInput.type = 'file';
+                        uploadBackgroundImageInput.accept = 'image/*';
+                        uploadBackgroundImageInput.textContent = "Upload Background Image"
+                        uploadBackgroundImageInput.onchange = (e) => {
+                            let file = e.target.files[0]
+                            uploadFile(file);
+                        }
+                        liveEditorSection.appendChild(uploadBackgroundImageInput)
 
                         let br = document.createElement("br")
                         liveEditorSection.appendChild(br)
@@ -308,6 +348,7 @@
                 createOneToOneObjectStore(database, "primaryChoiceLink")
                 createOneToOneObjectStore(database, "secondaryChoiceLink")
                 createOneToOneObjectStore(database, "tetriaryChoiceLink")
+                database.createObjectStore("blob", {keyPath: "id"})
                 createOneToOneObjectStore(database, "translatedStrings")
             }
             databaseOpenRequest.onsuccess = () => {
