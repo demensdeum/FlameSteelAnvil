@@ -3,7 +3,7 @@
  <body>
     <script>
         initializeWithDatabase = (database, verbose) => {
-            debugPrint = (info) => {
+            const debugPrint = (info) => {
                 if (verbose) {
                     console.log(info)
                 }
@@ -45,6 +45,25 @@
                     }
                 }                
             }
+            const createFirstSceneForSelectedProject = () => {
+                let transaction = database.transaction("scenes", "readwrite")
+                let scenes = transaction.objectStore("scenes")
+
+                const id = `${state.project}-${doID()}`
+
+                let scene = {
+                    id: id,
+                }
+
+                let request = scenes.add(scene)
+                request.onsuccess = () => {
+                    state.scene = scene.id
+                    debugPrint(`Scene success added: ${id}`)
+                }
+                request.onerror = () => {
+                    debugPrint(`Scene add scene error: ${request.error}`)
+                }
+            }
             const createNewProject = () => {
                 let transaction = database.transaction("projects", "readwrite")
                 let projects = transaction.objectStore("projects")
@@ -55,12 +74,14 @@
 
                 let request = projects.add(project)
                 request.onsuccess = () => {
-                    debugPrint("Project added to the store", request.result)
+                    debugPrint(`Project added to the store: ${request.result}`)
+                    state.project = project.id
+                    createFirstSceneForSelectedProject()
                     renderState()
                 }
 
                 request.onerror = () => {
-                    debugPrint("Project added to the store", request.error)
+                    debugPrint(`"Project add to the store error: ${request.error}`)
                 }                
             }
             const selectProject = (id) => {
@@ -68,6 +89,20 @@
                 debugPrint("selectProject: " + id)
             }
             const deleteSelectedProject = () => {
+                if (state.project == none) {
+                    return
+                }
+                if (confirm(`Delete project ${state.project}?`)) {
+                    let transaction = database.transaction("projects", "readwrite")
+                    let projects = transaction.objectStore("projects")
+                    let request = projects.delete(state.project)
+                    request.onsuccess = () => {
+                        debugPrint("Project success delete")
+                    }
+                    request.onerror = () => {
+                        debugPrint(`Project remove from the store error: ${request.error}`)
+                    }
+                }
             }
             const uploadImage = (image) => {
             }
@@ -92,19 +127,6 @@
             const renderProjectsSection = () => {
                 let projectsSection = document.getElementById('projectsSection');
                 projectsSection.innerHTML = ''
-                
-                let newProjectButton = document.createElement("button")
-                newProjectButton.textContent = "New Project"
-                newProjectButton.onclick = createNewProject
-                projectsSection.appendChild(newProjectButton)
-
-                let deleteProjectButton = document.createElement("button")
-                deleteProjectButton.textContent = "Delete Project"
-                deleteProjectButton.onclick = deleteSelectedProject
-                projectsSection.appendChild(deleteProjectButton)
-
-                let br = document.createElement("br")
-                projectsSection.appendChild(br)
 
                 listOfProjects((projects) => {
                     debugPrint(projects)
@@ -112,6 +134,10 @@
                     select.onchange = () => {
                         selectProject(select.value)
                     }
+                    let option = document.createElement('option')
+                    option.textContent = none
+                    select.appendChild(option)
+
                     if (projects.length > 0) {
                         projects.forEach(e => {
                             let option = document.createElement('option')
@@ -125,11 +151,139 @@
                         p.textContent = "No projects"
                         projectsSection.appendChild(p)
                     }
+
+                    let br = document.createElement("br")
+                    projectsSection.appendChild(br)
+
+                    let newProjectButton = document.createElement("button")
+                    newProjectButton.textContent = "New Project"
+                    newProjectButton.onclick = createNewProject
+                    projectsSection.appendChild(newProjectButton)
+
+                    let deleteProjectButton = document.createElement("button")
+                    deleteProjectButton.textContent = "Delete Project"
+                    deleteProjectButton.onclick = deleteSelectedProject
+                    projectsSection.appendChild(deleteProjectButton)
+                })
+            }
+            const uploadBackgroundImage = () => {
+                debugPrint("uploadBackgroundImage")
+            }
+            const listOfBackgrounds = (completion) => {
+                let database = state.database
+                let transaction = database.transaction("backgrounds", "readwrite")
+                let backgroundsObjectStore = transaction.objectStore("backgrounds")
+                let request = backgroundsObjectStore.openCursor()
+                var backgrounds = []
+                request.onsuccess = function() {
+                    let cursor = request.result
+                    if (cursor) {
+                        let key = cursor.key
+                        let value = cursor.value
+                        debugPrint([key, value])
+                        backgrounds.push(value)
+                        cursor.continue()
+                    } else {
+                        debugPrint("No more backgrounds")
+                        completion(backgrounds)
+                    }
+                }
+            }
+            const renderSceneBackgroundSection = (completion) => {
+                let liveEditorSection = document.getElementById('liveEditorSection');
+                liveEditorSection.innerHTML = ''
+
+                let database = state.database
+                let transaction = database.transaction("sceneBackgroundImage", "readwrite")
+                let sceneBackgroundImageObjectStore = transaction.objectStore("sceneBackgroundImage")
+                let request = sceneBackgroundImageObjectStore.openCursor()
+                request.onsuccess = function() {
+                    let cursor = request.result
+                    if (cursor) {
+                        let key = cursor.key
+                        let value = cursor.value
+                        debugPrint(`Scene background: ${value}`)
+                        let liveEditorSection = document.getElementById('liveEditorSection')
+                        let p = document.createElement('p')
+                        p.textContent = value.id
+                        liveEditorSection.appendChild(p)
+                    }
+                    else {
+                        let p = document.createElement('p')
+                        p.textContent = none
+                        liveEditorSection.appendChild(p)
+                    }
+
+                    let br = document.createElement("br")
+                    liveEditorSection.appendChild(br)
+
+                    listOfBackgrounds((backgrounds) => {
+                        debugPrint(backgrounds)
+                        let select = document.createElement('select')
+                        select.onchange = () => {
+                            selectBackground(select.value)
+                        }
+                        let option = document.createElement('option')
+                        option.textContent = none
+                        select.appendChild(option)
+
+                        if (backgrounds.length > 0) {
+                            backgrounds.forEach(e => {
+                                let option = document.createElement('option')
+                                option.textContent = e.id
+                                select.appendChild(option)
+                            })
+                            liveEditorSection.appendChild(select)
+                        }
+                        else {
+                            let p = document.createElement('p')
+                            p.textContent = "No Backgrounds"
+                            liveEditorSection.appendChild(p)
+                        }
+
+                        let uploadBackgroundImageButton = document.createElement("button")
+                        uploadBackgroundImageButton.textContent = "Upload Background Image"
+                        uploadBackgroundImageButton.onclick = uploadBackgroundImage
+                        liveEditorSection.appendChild(uploadBackgroundImageButton)
+
+                        let br = document.createElement("br")
+                        liveEditorSection.appendChild(br)
+
+                        completion()
+                    })
+                }
+            }
+            const renderSceneTextSection = () => {
+                let liveEditorSection = document.getElementById('liveEditorSection');
+
+                let p = document.createElement('input')
+                p.textContent = none
+                liveEditorSection.appendChild(p)
+            }
+            const renderLiveEditor = () => {
+                let liveEditorSection = document.getElementById('liveEditorSection')
+                liveEditorSection.innerHTML = ''
+
+                renderSceneBackgroundSection(() => {
+                    renderSceneTextSection(() => {
+                        renderScenePrimaryChoiceSection(() => {
+                            renderSceneSecondaryChoiceSection(() => {
+                                renderSceneTetriaryChoiceSection(() => {
+                                    playSceneMusic(() => {
+                                        playSceneSound(() => {
+
+                                        })
+                                    })
+                                })
+                            })
+                        })
+                    })
                 })
             }
             const renderState = (state) => {
                 debugPrint("renderState")
                 renderProjectsSection()
+                renderLiveEditor()
             }
             renderState(state)
         }
@@ -143,6 +297,8 @@
                 }
                 database.createObjectStore("projects", {keyPath: "id"})
                 createOneToOneObjectStore(database, "scenes")
+                createOneToOneObjectStore(database, "backgrounds")
+                createOneToOneObjectStore(database, "projectFirstScene")
                 createOneToOneObjectStore(database, "sceneBackgroundImage")
                 createOneToOneObjectStore(database, "scenePrimaryImage")
                 createOneToOneObjectStore(database, "sceneSecondaryImage")
@@ -162,4 +318,5 @@
         main({"verbose" : true})
     </script>
     <div id="projectsSection">Loading list of projects...</div>
+    <div id="liveEditorSection">Loading list of projects...</div>
  </body>
