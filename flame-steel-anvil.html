@@ -382,6 +382,7 @@
                         destination: id
                     })
                     request.onsuccess = () => {
+                        renderState()
                         resolve()
                     }
                     request.onerror = () => {
