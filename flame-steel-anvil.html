@@ -11,12 +11,12 @@
             debugPrint(database)
             const none = "<NONE>"
             const doID = () => {
-                const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-                    let result = '';
+                const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                    let result = ''
                     for (let i = 0; i < 16; i++) {
-                        result += chars.charAt(Math.floor(Math.random() * chars.length));
+                        result += chars.charAt(Math.floor(Math.random() * chars.length))
                     }
-                return result;
+                return result
             }
             let state = {
                 "database" : database,
@@ -45,44 +45,62 @@
                     }
                 }                
             }
-            const createFirstSceneForSelectedProject = () => {
-                let transaction = database.transaction("scenes", "readwrite")
-                let scenes = transaction.objectStore("scenes")
+            const createFirstSceneForSelectedProject = async () => {
+                return new Promise((resolve) => {
+                    let transaction = database.transaction("scenes", "readwrite")
+                    let scenes = transaction.objectStore("scenes")
 
-                const id = `${state.project}-${doID()}`
+                    const id = doID()
 
-                let scene = {
-                    id: id,
-                }
+                    let scene = {
+                        id: id,
+                    }
 
-                let request = scenes.add(scene)
-                request.onsuccess = () => {
-                    state.scene = scene.id
-                    debugPrint(`Scene success added: ${id}`)
-                }
-                request.onerror = () => {
-                    debugPrint(`Scene add scene error: ${request.error}`)
-                }
+                    let request = scenes.add(scene)
+                    request.onsuccess = () => {
+                        state.scene = id
+                        debugPrint(`Scene success added: ${id}`)
+
+                        let transaction = database.transaction("projectFirstScene", "readwrite")
+                        let projectFirstSceneStore = transaction.objectStore("projectFirstScene")
+                        let projectFirstScene = {
+                            id: state.project,
+                            destination: id
+                        }
+                        let request = projectFirstSceneStore.add(projectFirstScene)
+
+                        request.onsuccess = () => {
+                            debugPrint(`createFirstSceneForSelectedProject -> ${projectFirstScene.destination} -> request.onsuccess`)
+                            resolve()
+                        }
+                    }
+
+                    request.onerror = () => {
+                        debugPrint(`Scene add scene error: ${request.error}`)
+                    }
+                })
             }
-            const createNewProject = () => {
-                let transaction = database.transaction("projects", "readwrite")
-                let projects = transaction.objectStore("projects")
+            const createNewProject = async () => {
+                return new Promise((resolve) => {
+                    let transaction = database.transaction("projects", "readwrite")
+                    let projects = transaction.objectStore("projects")
 
-                let project = {
-                    id: doID(),
-                }
+                    let project = {
+                        id: doID(),
+                    }
 
-                let request = projects.add(project)
-                request.onsuccess = () => {
-                    debugPrint(`Project added to the store: ${request.result}`)
-                    state.project = project.id
-                    createFirstSceneForSelectedProject()
-                    renderState()
-                }
-
-                request.onerror = () => {
-                    debugPrint(`"Project add to the store error: ${request.error}`)
-                }                
+                    let request = projects.add(project)
+                    request.onsuccess = async () => {
+                        debugPrint(`Project added to the store: ${request.result}`)
+                        state.project = project.id
+                        await createFirstSceneForSelectedProject()
+                        renderState()
+                        resolve()
+                    }
+                    request.onerror = () => {
+                        debugPrint(`"Project add to the store error: ${request.error}`)
+                    }
+                })
             }
             const selectProject = (id) => {
                 state.project = id
@@ -182,7 +200,7 @@
             const switchToPreviousScene = () => {
             }
             const renderProjectsSection = () => {
-                let projectsSection = document.getElementById('projectsSection');
+                let projectsSection = document.getElementById('projectsSection')
                 projectsSection.innerHTML = ''
 
                 listOfProjects((projects) => {
@@ -261,32 +279,35 @@
                 let request = store.put(entry)
                 
                 request.onsuccess = () => {
-                    debugPrint(`Background ${background} saved for scene ${state.scene}`);
+                    debugPrint(`Background ${background} saved for scene ${state.scene}`)
                     renderState();
                 }
 
                 request.onerror = (e) => {
-                    debugPrint(`Error saving background: ${e.target.error}`);
+                    debugPrint(`Error saving background: ${e.target.error}`)
                 }
             }
             const renderSceneBackgroundSection = async () => {
+                if (state.project == none) {
+                    return
+                }
                 return new Promise((resolve) => {
-                    let liveEditorSection = document.getElementById('liveEditorSection');
+                    let liveEditorSection = document.getElementById('liveEditorSection')
                     liveEditorSection.innerHTML = ''
 
                     let database = state.database
                     let transaction = database.transaction("sceneBackgroundImage", "readwrite")
                     let sceneBackgroundImageObjectStore = transaction.objectStore("sceneBackgroundImage")
-                    let request = sceneBackgroundImageObjectStore.openCursor()
-                    request.onsuccess = function() {
+                    debugPrint(`state.scene: ${state.scene}`)
+                    let request = sceneBackgroundImageObjectStore.get(state.scene)
+
+                    request.onsuccess = () => {
                         let cursor = request.result
                         if (cursor) {
-                            let key = cursor.key
-                            let value = cursor.value
-                            debugPrint(`Scene background: ${value}`)
+                            debugPrint(`Scene background: ${cursor.destination}`)
                             let liveEditorSection = document.getElementById('liveEditorSection')
                             let p = document.createElement('p')
-                            p.textContent = value.id
+                            p.textContent = `Background: ${cursor.destination}`
                             liveEditorSection.appendChild(p)
                         }
                         else {
@@ -328,7 +349,7 @@
                             uploadBackgroundImageInput.textContent = "Upload Background Image"
                             uploadBackgroundImageInput.onchange = (e) => {
                                 let file = e.target.files[0]
-                                uploadFile(file);
+                                uploadFile(file)
                             }
                             liveEditorSection.appendChild(uploadBackgroundImageInput)
 
@@ -342,7 +363,7 @@
             }
             const renderSceneTextSection  = async () => {
                 return new Promise((resolve) => {
-                    let liveEditorSection = document.getElementById('liveEditorSection');
+                    let liveEditorSection = document.getElementById('liveEditorSection')
 
                     let p = document.createElement('p')
                     p.textContent = none
@@ -353,30 +374,41 @@
             }
             const addNextScene = async () => {
                 return new Promise((resolve) => {
-
+                    let id = doID()
+                    let transaction = database.transaction("primaryChoiceLink", "readwrite")
+                    let primaryChoiceLinkObjectStore = transaction.objectStore("primaryChoiceLink")
+                    let request = primaryChoiceLinkObjectStore.add({
+                        id: state.scene,
+                        destination: id
+                    })
+                    request.onsuccess = () => {
+                        resolve()
+                    }
+                    request.onerror = () => {
+                        debugPrint(request.error)
+                    }
                 })
             }
             const renderScenePrimaryChoiceSection = async () => {
                 return new Promise((resolve) => {
-                    let transaction = database.transaction("primaryChoiceLink", "readonly");
-                    let request = transaction.objectStore("primaryChoiceLink").get(state.scene);
-                    let scenePrimaryChoiceSection = document.getElementById('scenePrimaryChoiceSection')
+                    let transaction = database.transaction("primaryChoiceLink", "readonly")
+                    let request = transaction.objectStore("primaryChoiceLink").get(state.scene)
 
-                    let liveEditorSection = document.getElementById('liveEditorSection');
+                    let liveEditorSection = document.getElementById('liveEditorSection')
 
                     request.onsuccess = () => {
                         if (request.result) {
                             let p = document.createElement('p');
-                            p.textContent = `Next Scene: ${request.result.destination}`;
-                            section.appendChild(p);
+                            p.textContent = `Next Scene: ${request.result.destination}`
+                            liveEditorSection.appendChild(p)
                             
-                            let btnGo = document.createElement('button');
-                            btnGo.textContent = "Edit Next Scene";
+                            let btnGo = document.createElement('button')
+                            btnGo.textContent = "Edit Next Scene"
                             btnGo.onclick = () => {
-                                state.scene = request.result.destination;
+                                state.scene = request.result.destination
                                 renderState()
                             }
-                            section.appendChild(btnGo)
+                            liveEditorSection.appendChild(btnGo)
                         } else {
                             let btnAdd = document.createElement('button')
                             btnAdd.textContent = "Add Next Scene"
