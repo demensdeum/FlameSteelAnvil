@@ -87,6 +87,32 @@
             const selectProject = (id) => {
                 state.project = id
                 debugPrint("selectProject: " + id)
+                
+                if (id === none) {
+                    state.scene = none
+                    renderState()
+                    return
+                }
+
+                let transaction = database.transaction("projectFirstScene", "readonly")
+                let store = transaction.objectStore("projectFirstScene")
+                let request = store.get(id)
+
+                request.onsuccess = () => {
+                    if (request.result) {
+                        state.scene = request.result.destination
+                        debugPrint("found first scene: " + state.scene)
+                    } else {
+                        state.scene = none
+                        debugPrint("no first scene found for project")
+                    }
+                    renderState()
+                }
+                
+                request.onerror = () => {
+                    state.scene = none
+                    renderState()
+                }
             }
             const deleteSelectedProject = () => {
                 if (state.project == none) {
@@ -174,6 +200,9 @@
                             let option = document.createElement('option')
                             option.textContent = e.id
                             select.appendChild(option)
+                            if (state.project == e.id) {
+                                select.value = e.id
+                            }
                         })
                         projectsSection.appendChild(select)
                     } 
@@ -221,104 +250,181 @@
                 }
             }
             const selectBackground = (background) => {
-                sceneBackgroundImage[state.scene] = background
-                renderState()
-            }
-            const renderSceneBackgroundSection = (completion) => {
-                let liveEditorSection = document.getElementById('liveEditorSection');
-                liveEditorSection.innerHTML = ''
-
-                let database = state.database
                 let transaction = database.transaction("sceneBackgroundImage", "readwrite")
-                let sceneBackgroundImageObjectStore = transaction.objectStore("sceneBackgroundImage")
-                let request = sceneBackgroundImageObjectStore.openCursor()
-                request.onsuccess = function() {
-                    let cursor = request.result
-                    if (cursor) {
-                        let key = cursor.key
-                        let value = cursor.value
-                        debugPrint(`Scene background: ${value}`)
-                        let liveEditorSection = document.getElementById('liveEditorSection')
-                        let p = document.createElement('p')
-                        p.textContent = value.id
-                        liveEditorSection.appendChild(p)
-                    }
-                    else {
-                        let p = document.createElement('p')
-                        p.textContent = none
-                        liveEditorSection.appendChild(p)
-                    }
+                let store = transaction.objectStore("sceneBackgroundImage")
 
-                    let br = document.createElement("br")
-                    liveEditorSection.appendChild(br)
+                const entry = {
+                    id: state.scene,
+                    destination: background
+                }
 
-                    listOfBackgrounds((backgrounds) => {
-                        debugPrint(backgrounds)
-                        let select = document.createElement('select')
-                        select.onchange = () => {
-                            selectBackground(select.value)
-                        }
-                        let option = document.createElement('option')
-                        option.textContent = none
-                        select.appendChild(option)
+                let request = store.put(entry)
+                
+                request.onsuccess = () => {
+                    debugPrint(`Background ${background} saved for scene ${state.scene}`);
+                    renderState();
+                }
 
-                        if (backgrounds.length > 0) {
-                            backgrounds.forEach(e => {
-                                let option = document.createElement('option')
-                                option.textContent = e.id
-                                select.appendChild(option)
-                            })
-                            liveEditorSection.appendChild(select)
+                request.onerror = (e) => {
+                    debugPrint(`Error saving background: ${e.target.error}`);
+                }
+            }
+            const renderSceneBackgroundSection = async () => {
+                return new Promise((resolve) => {
+                    let liveEditorSection = document.getElementById('liveEditorSection');
+                    liveEditorSection.innerHTML = ''
+
+                    let database = state.database
+                    let transaction = database.transaction("sceneBackgroundImage", "readwrite")
+                    let sceneBackgroundImageObjectStore = transaction.objectStore("sceneBackgroundImage")
+                    let request = sceneBackgroundImageObjectStore.openCursor()
+                    request.onsuccess = function() {
+                        let cursor = request.result
+                        if (cursor) {
+                            let key = cursor.key
+                            let value = cursor.value
+                            debugPrint(`Scene background: ${value}`)
+                            let liveEditorSection = document.getElementById('liveEditorSection')
+                            let p = document.createElement('p')
+                            p.textContent = value.id
+                            liveEditorSection.appendChild(p)
                         }
                         else {
                             let p = document.createElement('p')
-                            p.textContent = "No Backgrounds"
+                            p.textContent = none
                             liveEditorSection.appendChild(p)
                         }
-
-                        let uploadBackgroundImageInput = document.createElement('input')
-                        uploadBackgroundImageInput.type = 'file';
-                        uploadBackgroundImageInput.accept = 'image/*';
-                        uploadBackgroundImageInput.textContent = "Upload Background Image"
-                        uploadBackgroundImageInput.onchange = (e) => {
-                            let file = e.target.files[0]
-                            uploadFile(file);
-                        }
-                        liveEditorSection.appendChild(uploadBackgroundImageInput)
 
                         let br = document.createElement("br")
                         liveEditorSection.appendChild(br)
 
-                        completion()
-                    })
-                }
-            }
-            const renderSceneTextSection = () => {
-                let liveEditorSection = document.getElementById('liveEditorSection');
+                        listOfBackgrounds((backgrounds) => {
+                            debugPrint(backgrounds)
+                            let select = document.createElement('select')
+                            select.onchange = () => {
+                                selectBackground(select.value)
+                            }
+                            let option = document.createElement('option')
+                            option.textContent = none
+                            select.appendChild(option)
 
-                let p = document.createElement('input')
-                p.textContent = none
-                liveEditorSection.appendChild(p)
+                            if (backgrounds.length > 0) {
+                                backgrounds.forEach(e => {
+                                    let option = document.createElement('option')
+                                    option.textContent = e.id
+                                    select.appendChild(option)
+                                })
+                                liveEditorSection.appendChild(select)
+                            }
+                            else {
+                                let p = document.createElement('p')
+                                p.textContent = "No Backgrounds"
+                                liveEditorSection.appendChild(p)
+                            }
+
+                            let uploadBackgroundImageInput = document.createElement('input')
+                            uploadBackgroundImageInput.type = 'file';
+                            uploadBackgroundImageInput.accept = 'image/*';
+                            uploadBackgroundImageInput.textContent = "Upload Background Image"
+                            uploadBackgroundImageInput.onchange = (e) => {
+                                let file = e.target.files[0]
+                                uploadFile(file);
+                            }
+                            liveEditorSection.appendChild(uploadBackgroundImageInput)
+
+                            let br = document.createElement("br")
+                            liveEditorSection.appendChild(br)
+
+                            resolve()
+                        })
+                    }
+                })
             }
-            const renderLiveEditor = () => {
+            const renderSceneTextSection  = async () => {
+                return new Promise((resolve) => {
+                    let liveEditorSection = document.getElementById('liveEditorSection');
+
+                    let p = document.createElement('p')
+                    p.textContent = none
+                    liveEditorSection.appendChild(p)
+
+                    resolve()
+                })
+            }
+            const addNextScene = async () => {
+                return new Promise((resolve) => {
+
+                })
+            }
+            const renderScenePrimaryChoiceSection = async () => {
+                return new Promise((resolve) => {
+                    let transaction = database.transaction("primaryChoiceLink", "readonly");
+                    let request = transaction.objectStore("primaryChoiceLink").get(state.scene);
+                    let scenePrimaryChoiceSection = document.getElementById('scenePrimaryChoiceSection')
+
+                    let liveEditorSection = document.getElementById('liveEditorSection');
+
+                    request.onsuccess = () => {
+                        if (request.result) {
+                            let p = document.createElement('p');
+                            p.textContent = `Next Scene: ${request.result.destination}`;
+                            section.appendChild(p);
+                            
+                            let btnGo = document.createElement('button');
+                            btnGo.textContent = "Edit Next Scene";
+                            btnGo.onclick = () => {
+                                state.scene = request.result.destination;
+                                renderState()
+                            }
+                            section.appendChild(btnGo)
+                        } else {
+                            let btnAdd = document.createElement('button')
+                            btnAdd.textContent = "Add Next Scene"
+                            btnAdd.style.background = "#007bff"
+                            btnAdd.style.color = "white"
+                            btnAdd.onclick = addNextScene
+                            liveEditorSection.appendChild(btnAdd)
+                        }
+                        resolve()
+                    }
+                })
+            }
+            const renderSceneSecondaryChoiceSection = async () => {
+                return new Promise((resolve) => {
+                    debugPrint("renderSceneSecondaryChoiceSection")
+                    resolve()
+                })
+            }
+            const renderSceneTetriaryChoiceSection = async () => {
+                return new Promise((resolve) => {
+                    debugPrint("renderSceneTetriaryChoiceSection")
+                    resolve()
+                })
+            }
+            const renderSceneMusicSection = async () => {
+                return new Promise((resolve) => {
+                    debugPrint("renderSceneMusicSection")
+                    resolve()
+                })
+            }
+            const renderSceneSoundSection = async () => {
+                return new Promise((resolve) => {
+                    debugPrint("renderSceneSoundSection")
+                    resolve()
+                })
+            }
+            async function renderLiveEditor() {
+                debugPrint("renderLiveEditor")
                 let liveEditorSection = document.getElementById('liveEditorSection')
                 liveEditorSection.innerHTML = ''
 
-                renderSceneBackgroundSection(() => {
-                    renderSceneTextSection(() => {
-                        renderScenePrimaryChoiceSection(() => {
-                            renderSceneSecondaryChoiceSection(() => {
-                                renderSceneTetriaryChoiceSection(() => {
-                                    playSceneMusic(() => {
-                                        playSceneSound(() => {
-
-                                        })
-                                    })
-                                })
-                            })
-                        })
-                    })
-                })
+                await renderSceneBackgroundSection()
+                await renderSceneTextSection()
+                await renderScenePrimaryChoiceSection()
+                await renderSceneSecondaryChoiceSection()
+                await renderSceneTetriaryChoiceSection()
+                await renderSceneMusicSection()
+                await renderSceneSoundSection()
             }
             const renderState = (state) => {
                 debugPrint("renderState")
