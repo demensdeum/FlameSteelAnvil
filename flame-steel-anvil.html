@@ -3,6 +3,55 @@
  <body>
     <script>
         initializeWithDatabase = (database, verbose) => {
+            const createRepository = (storeName) => {
+                const getStore = (mode) => database.transaction(storeName, mode).objectStore(storeName)
+
+                return {
+                    getAll: () => new Promise((resolve, reject) => {
+                        const results = []
+                        const request = getStore("readonly").openCursor()
+                        request.onsuccess = () => {
+                            const cursor = request.result
+                            if (cursor) {
+                                results.push(cursor.value)
+                                cursor.continue()
+                            } else {
+                                resolve(results)
+                            }
+                        }
+                        request.onerror = () => reject(request.error)
+                    }),
+                    create: (data) => new Promise((resolve, reject) => {
+                        const request = getStore("readwrite").add(data)
+                        request.onsuccess = () => resolve(request.result)
+                        request.onerror = () => reject(request.error)
+                    }),
+                    read: (id) => new Promise((resolve, reject) => {
+                        const request = getStore("readonly").get(id)
+                        request.onsuccess = () => resolve(request.result)
+                        request.onerror = () => reject(request.error)
+                    }),
+                    update: (data) => new Promise((resolve, reject) => {
+                        const request = getStore("readwrite").put(data)
+                        request.onsuccess = () => resolve(request.result)
+                        request.onerror = () => reject(request.error)
+                    }),
+                    delete: (id) => new Promise((resolve, reject) => {
+                        const request = getStore("readwrite").delete(id)
+                        request.onsuccess = () => resolve()
+                        request.onerror = () => reject(request.error)
+                    })
+                }
+            }
+
+            let projectsRepository = createRepository("projects")
+            let scenesRepository = createRepository("scenes")
+            let backgroundsRepository = createRepository("backgrounds")
+            let projectFirstSceneRepository = createRepository("projectFirstScene")
+            let sceneBackgroundImageRepository = createRepository("sceneBackgroundImage")
+            let primaryChoiceRepository = createRepository("primaryChoiceLink")
+            let blobRepository = createRepository("blob")
+
             const debugPrint = (info) => {
                 if (verbose) {
                     console.log(info)
