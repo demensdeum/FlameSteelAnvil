@@ -112,38 +112,18 @@
                 renderState()
                 resolve()
             }
-            const uploadFile = (file) => {
+            const uploadFile = async (file) => {
                 if (!file) return
-                let transaction = database.transaction("blob", "readwrite")
-                let blob = transaction.objectStore("blob")
-
-                let blobID = doID()
-                const item = {
+                const blobID = doID()
+                await blobRepository.create({
                     id: blobID,
                     data: file
-                }
+                })
 
-                debugPrint(blobID)
-
-                let request = blob.add(item)
-                request.onsuccess = () => {
-                    debugPrint(`blob uploaded: ${blobID}`)
-
-                    let transaction = database.transaction("backgrounds", "readwrite")
-                    let backgrounds = transaction.objectStore("backgrounds")
-
-                    const item = {
+                await backgroundsRepository.create({
                         id: blobID
-                    }
-
-                    let request = backgrounds.add(item)
-                    request.onsuccess = () => {
-                        renderState()
-                    }
-                    request.onerror = () => {
-                        debugPrint(request.error)
-                    }
-                }
+                })
+                renderState()
             }
             const selectImage = (id) => {
             }
