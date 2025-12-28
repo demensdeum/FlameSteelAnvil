@@ -50,6 +50,7 @@
             let projectFirstSceneRepository = createRepository("projectFirstScene")
             let sceneBackgroundImageRepository = createRepository("sceneBackgroundImage")
             let primaryChoiceLinkRepository = createRepository("primaryChoiceLink")
+            let translatedStringsRepository = createRepository("translatedStrings")
             let blobRepository = createRepository("blob")
 
             const debugPrint = (info) => {
@@ -68,11 +69,12 @@
                 return result
             }
             let state = {
-                "database" : database,
-                "project" : none,
-                "image" : none,
-                "choice" : none,
-                "scene" : none
+                database : database,
+                project : none,
+                image : none,
+                choice : none,
+                scene : none,
+                language: 'en'
             }
             const createFirstSceneForSelectedProject = async () => {
                 return new Promise((resolve) => {
@@ -195,7 +197,6 @@
                         let imgContainer = document.createElement('div')
                         imgContainer.style.margin = "10px 0"
 
-                        debugger
                         let img = document.createElement('img')
                         img.src = URL.createObjectURL(blobData)
 
@@ -208,9 +209,6 @@
                         p.textContent = none
                         liveEditorSection.appendChild(p)
                     }
-
-                    let br = document.createElement("br")
-                    liveEditorSection.appendChild(br)
 
                     let backgrounds = await backgroundsRepository.getAll()
                     debugPrint(backgrounds)
@@ -246,19 +244,59 @@
                     }
                     liveEditorSection.appendChild(uploadBackgroundImageInput)
 
+                    let br = document.createElement("br")
+                    liveEditorSection.appendChild(br)
+
                     resolve()
                 })
             }
+            const sceneTextKey = () => {
+                return `${state.language}-${state.scene}`
+            }
+            const selectLanguage = (language) => {
+                state.language = language
+                renderState()
+            }
+            const sceneText = async() => {
+                const key = await sceneTextKey()
+                const text = (await translatedStringsRepository.read(key))?.destination
+                return text
+            }
+            const handleSceneTextChange = async (event) => {
+                await translatedStringsRepository.update({id: sceneTextKey(), destination: event.target.value})
+            }
             const renderSceneTextSection  = async () => {
-                return new Promise((resolve) => {
                     let liveEditorSection = document.getElementById('liveEditorSection')
+                    const languages = ["en", "ru"]
 
-                    let p = document.createElement('p')
-                    p.textContent = none
-                    liveEditorSection.appendChild(p)
+                    let select = document.createElement('select')
+                    select.onchange = () => {
+                        selectLanguage(select.value)
+                    }
 
-                    resolve()
-                })
+                    languages.forEach(e => {
+                        let option = document.createElement('option')
+                        option.textContent = e
+                        select.appendChild(option)
+
+                        if (state.language == e) {
+                            select.value = e
+                        }
+                    })
+                    liveEditorSection.appendChild(select)
+
+                    let sceneKeyParagraph = document.createElement('p')
+                    sceneKeyParagraph.textContent = sceneTextKey()
+                    liveEditorSection.appendChild(sceneKeyParagraph)
+
+                    let sceneTextInput = document.createElement('textarea')
+                    sceneTextInput.value = await sceneText()
+                    sceneTextInput.rows = 4
+                    sceneTextInput.style.width = "100%"
+                    sceneTextInput.style.resize = "vertical"
+                    sceneTextInput.onchange = handleSceneTextChange
+                    liveEditorSection.appendChild(sceneTextInput)
+
             }
             const addNextScene = async () => {
                 const id = doID()
