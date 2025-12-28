@@ -50,6 +50,7 @@
             let projectFirstSceneRepository = createRepository("projectFirstScene")
             let sceneBackgroundImageRepository = createRepository("sceneBackgroundImage")
             let primaryChoiceLinkRepository = createRepository("primaryChoiceLink")
+            let secondaryChoiceLinkRepository = createRepository("secondaryChoiceLink")
             let translatedStringsRepository = createRepository("translatedStrings")
             let blobRepository = createRepository("blob")
 
@@ -188,8 +189,8 @@
                     liveEditorSection.innerHTML = ''
 
                     let sceneBackgroundImage = (await sceneBackgroundImageRepository.read(state.scene))?.destination
-                    let blobData = (await blobRepository.read(sceneBackgroundImage))?.data
                     if (sceneBackgroundImage) {
+                        let blobData = (await blobRepository.read(sceneBackgroundImage))?.data
                         debugPrint(`Scene background: ${sceneBackgroundImage}`)
                         let liveEditorSection = document.getElementById('liveEditorSection')
                         let p = document.createElement('p')
@@ -307,6 +308,15 @@
                 })
                 renderState()
             }
+            const addSecondaryScene = async () => {
+                const id = doID()
+                await scenesRepository.create({id: id})
+                await secondaryChoiceLinkRepository.create({
+                    id: state.scene,
+                    destination: id
+                })
+                renderState()
+            }
             const renderScenePrimaryChoiceSection = async () => {
                 const primaryChoiceLink = (await primaryChoiceLinkRepository.read(state.scene))?.destination
                 if (primaryChoiceLink) {
@@ -331,10 +341,27 @@
                 }
             }
             const renderSceneSecondaryChoiceSection = async () => {
-                return new Promise((resolve) => {
-                    debugPrint("renderSceneSecondaryChoiceSection")
-                    resolve()
-                })
+                const secondaryChoiceLink = (await secondaryChoiceLinkRepository.read(state.scene))?.destination
+                if (secondaryChoiceLink) {
+                    let p = document.createElement('p');
+                    p.textContent = `Secondary Choice Link: ${secondaryChoiceLink}`
+                    liveEditorSection.appendChild(p)
+
+                    let btnGo = document.createElement('button')
+                    btnGo.textContent = "Edit Secondary Choice Scene"
+                    btnGo.onclick = () => {
+                        state.scene = secondaryChoiceLink
+                        renderState()
+                    }
+                    liveEditorSection.appendChild(btnGo)
+                } else {
+                    let btnAdd = document.createElement('button')
+                    btnAdd.textContent = "Add Secondary Choice Scene"
+                    btnAdd.style.background = "#28a745"
+                    btnAdd.style.color = "white"
+                    btnAdd.onclick = addSecondaryScene
+                    liveEditorSection.appendChild(btnAdd)
+                }
             }
             const renderSceneTetriaryChoiceSection = async () => {
                 return new Promise((resolve) => {
