@@ -49,7 +49,7 @@
             let backgroundsRepository = createRepository("backgrounds")
             let projectFirstSceneRepository = createRepository("projectFirstScene")
             let sceneBackgroundImageRepository = createRepository("sceneBackgroundImage")
-            let primaryChoiceRepository = createRepository("primaryChoiceLink")
+            let primaryChoiceLinkRepository = createRepository("primaryChoiceLink")
             let blobRepository = createRepository("blob")
 
             const debugPrint = (info) => {
@@ -73,26 +73,6 @@
                 "image" : none,
                 "choice" : none,
                 "scene" : none
-            }
-            const listOfProjects = (completion) => {
-                let database = state.database
-                let transaction = database.transaction("projects", "readwrite")
-                let projectsObjectStore = transaction.objectStore("projects")
-                let request = projectsObjectStore.openCursor()
-                var projects = []
-                request.onsuccess = function() {
-                    let cursor = request.result
-                    if (cursor) {
-                        let key = cursor.key
-                        let value = cursor.value
-                        debugPrint([key, value])
-                        projects.push(value)
-                        cursor.continue()
-                    } else {
-                        debugPrint("No more projects")
-                        completion(projects)
-                    }
-                }                
             }
             const createFirstSceneForSelectedProject = async () => {
                 return new Promise((resolve) => {
@@ -183,74 +163,57 @@
             }
             const switchToPreviousScene = () => {
             }
-            const renderProjectsSection = () => {
+            const renderProjectsSection = async () => {
                 let projectsSection = document.getElementById('projectsSection')
                 projectsSection.innerHTML = ''
 
-                listOfProjects((projects) => {
-                    debugPrint(projects)
-                    let select = document.createElement('select')
-                    select.onchange = () => {
-                        selectProject(select.value)
-                    }
-                    let option = document.createElement('option')
-                    option.textContent = none
-                    select.appendChild(option)
+                const projects = await projectsRepository.getAll()
+                debugPrint(projects)
+                let select = document.createElement('select')
+                select.onchange = () => {
+                    selectProject(select.value)
+                }
+                let option = document.createElement('option')
+                option.textContent = none
+                select.appendChild(option)
 
-                    if (projects.length > 0) {
-                        projects.forEach(e => {
-                            let option = document.createElement('option')
-                            option.textContent = e.id
-                            select.appendChild(option)
-                            if (state.project == e.id) {
-                                select.value = e.id
-                            }
-                        })
-                        projectsSection.appendChild(select)
-                    } 
-                    else {
-                        let p = document.createElement('p')
-                        p.textContent = "No projects"
-                        projectsSection.appendChild(p)
-                    }
+                if (projects.length > 0) {
+                    projects.forEach(e => {
+                        let option = document.createElement('option')
+                        option.textContent = e.id
+                        select.appendChild(option)
+                        if (state.project == e.id) {
+                            select.value = e.id
+                        }
+                    })
+                    projectsSection.appendChild(select)
+                }
+                else {
+                    let p = document.createElement('p')
+                    p.textContent = "No projects"
+                    projectsSection.appendChild(p)
+                }
 
-                    let br = document.createElement("br")
-                    projectsSection.appendChild(br)
+                let br = document.createElement("br")
+                projectsSection.appendChild(br)
 
-                    let newProjectButton = document.createElement("button")
-                    newProjectButton.textContent = "New Project"
-                    newProjectButton.onclick = createNewProject
-                    projectsSection.appendChild(newProjectButton)
+                let newProjectButton = document.createElement("button")
+                newProjectButton.textContent = "New Project"
+                newProjectButton.onclick = createNewProject
+                projectsSection.appendChild(newProjectButton)
 
-                    let deleteProjectButton = document.createElement("button")
-                    deleteProjectButton.textContent = "Delete Project"
-                    deleteProjectButton.onclick = deleteSelectedProject
-                    projectsSection.appendChild(deleteProjectButton)
-                })
+                let deleteProjectButton = document.createElement("button")
+                deleteProjectButton.textContent = "Delete Project"
+                deleteProjectButton.onclick = deleteSelectedProject
+                projectsSection.appendChild(deleteProjectButton)
             }
             const uploadBackgroundImage = () => {
                 debugPrint("uploadBackgroundImage")
             }
 
-            const selectBackground = (background) => {
-                let transaction = database.transaction("sceneBackgroundImage", "readwrite")
-                let store = transaction.objectStore("sceneBackgroundImage")
-
-                const entry = {
-                    id: state.scene,
-                    destination: background
-                }
-
-                let request = store.put(entry)
-                
-                request.onsuccess = () => {
-                    debugPrint(`Background ${background} saved for scene ${state.scene}`)
-                    renderState();
-                }
-
-                request.onerror = (e) => {
-                    debugPrint(`Error saving background: ${e.target.error}`)
-                }
+            const selectBackground = async (background) => {
+                await sceneBackgroundImageRepository.update({ id: state.scene, destination: background})
+                renderState()
             }
             const renderSceneBackgroundSection = async () => {
                 if (state.project == none) {
@@ -326,54 +289,36 @@
                 })
             }
             const addNextScene = async () => {
-                return new Promise((resolve) => {
-                    let id = doID()
-                    let transaction = database.transaction("primaryChoiceLink", "readwrite")
-                    let primaryChoiceLinkObjectStore = transaction.objectStore("primaryChoiceLink")
-                    let request = primaryChoiceLinkObjectStore.add({
+                const id = doID()
+                await scenesRepository.create({id: id})
+                await primaryChoiceLinkRepository.create({
                         id: state.scene,
                         destination: id
-                    })
-                    request.onsuccess = () => {
-                        renderState()
-                        resolve()
-                    }
-                    request.onerror = () => {
-                        debugPrint(request.error)
-                    }
                 })
+                renderState()
             }
             const renderScenePrimaryChoiceSection = async () => {
-                return new Promise((resolve) => {
-                    let transaction = database.transaction("primaryChoiceLink", "readonly")
-                    let request = transaction.objectStore("primaryChoiceLink").get(state.scene)
+                const primaryChoiceLink = (await primaryChoiceLinkRepository.read(state.scene))?.destination
+                if (primaryChoiceLink) {
+                        let p = document.createElement('p');
+                        p.textContent = `Next Scene: ${primaryChoiceLink}`
+                        liveEditorSection.appendChild(p)
 
-                    let liveEditorSection = document.getElementById('liveEditorSection')
-
-                    request.onsuccess = () => {
-                        if (request.result) {
-                            let p = document.createElement('p');
-                            p.textContent = `Next Scene: ${request.result.destination}`
-                            liveEditorSection.appendChild(p)
-                            
-                            let btnGo = document.createElement('button')
-                            btnGo.textContent = "Edit Next Scene"
-                            btnGo.onclick = () => {
-                                state.scene = request.result.destination
-                                renderState()
-                            }
-                            liveEditorSection.appendChild(btnGo)
-                        } else {
-                            let btnAdd = document.createElement('button')
-                            btnAdd.textContent = "Add Next Scene"
-                            btnAdd.style.background = "#007bff"
-                            btnAdd.style.color = "white"
-                            btnAdd.onclick = addNextScene
-                            liveEditorSection.appendChild(btnAdd)
+                        let btnGo = document.createElement('button')
+                        btnGo.textContent = "Edit Next Scene"
+                        btnGo.onclick = () => {
+                            state.scene = primaryChoiceLink
+                            renderState()
                         }
-                        resolve()
-                    }
-                })
+                        liveEditorSection.appendChild(btnGo)
+                    } else {
+                        let btnAdd = document.createElement('button')
+                        btnAdd.textContent = "Add Next Scene"
+                        btnAdd.style.background = "#007bff"
+                        btnAdd.style.color = "white"
+                        btnAdd.onclick = addNextScene
+                        liveEditorSection.appendChild(btnAdd)
+                }
             }
             const renderSceneSecondaryChoiceSection = async () => {
                 return new Promise((resolve) => {
