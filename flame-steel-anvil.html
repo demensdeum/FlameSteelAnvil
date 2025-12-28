@@ -125,24 +125,6 @@
                 })
                 renderState()
             }
-            const selectImage = (id) => {
-            }
-            const removeSelectedImage = () => {
-            }
-            const addSelectedImageToScene = (position) => {
-            }
-            const removeSelectedImageFromScene = () => {
-            }
-            const addChoice = () => {
-            }
-            const selectChoice = (id) => {
-            }
-            const deleteSelectedChoice = () => {
-            }
-            const switchToNextScene = () => {
-            }
-            const switchToPreviousScene = () => {
-            }
             const renderProjectsSection = async () => {
                 let projectsSection = document.getElementById('projectsSection')
                 projectsSection.innerHTML = ''
@@ -204,11 +186,21 @@
                     liveEditorSection.innerHTML = ''
 
                     let sceneBackgroundImage = (await sceneBackgroundImageRepository.read(state.scene))?.destination
+                    let blobData = (await blobRepository.read(sceneBackgroundImage))?.data
                     if (sceneBackgroundImage) {
                         debugPrint(`Scene background: ${sceneBackgroundImage}`)
                         let liveEditorSection = document.getElementById('liveEditorSection')
                         let p = document.createElement('p')
+
+                        let imgContainer = document.createElement('div')
+                        imgContainer.style.margin = "10px 0"
+
+                        debugger
+                        let img = document.createElement('img')
+                        img.src = URL.createObjectURL(blobData)
+
                         p.textContent = `Background: ${sceneBackgroundImage}`
+                        liveEditorSection.appendChild(img)
                         liveEditorSection.appendChild(p)
                     }
                     else {
