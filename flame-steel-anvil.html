@@ -51,6 +51,7 @@
             let sceneBackgroundImageRepository = createRepository("sceneBackgroundImage")
             let primaryChoiceLinkRepository = createRepository("primaryChoiceLink")
             let secondaryChoiceLinkRepository = createRepository("secondaryChoiceLink")
+            let tetriaryChoiceLinkRepository = createRepository("tetriaryChoiceLink")
             let translatedStringsRepository = createRepository("translatedStrings")
             let blobRepository = createRepository("blob")
 
@@ -317,6 +318,15 @@
                 })
                 renderState()
             }
+            const addTetriaryScene = async () => {
+                const id = doID()
+                await scenesRepository.create({id: id})
+                await tetriaryChoiceLinkRepository.create({
+                    id: state.scene,
+                    destination: id
+                })
+                renderState()
+            }
             const renderScenePrimaryChoiceSection = async () => {
                 const primaryChoiceLink = (await primaryChoiceLinkRepository.read(state.scene))?.destination
                 if (primaryChoiceLink) {
@@ -364,10 +374,27 @@
                 }
             }
             const renderSceneTetriaryChoiceSection = async () => {
-                return new Promise((resolve) => {
-                    debugPrint("renderSceneTetriaryChoiceSection")
-                    resolve()
-                })
+                const tetriaryChoiceLink = (await tetriaryChoiceLinkRepository.read(state.scene))?.destination
+                if (tetriaryChoiceLink) {
+                    let p = document.createElement('p');
+                    p.textContent = `Tetriary Choice Link: ${tetriaryChoiceLink}`
+                    liveEditorSection.appendChild(p)
+
+                    let btnGo = document.createElement('button')
+                    btnGo.textContent = "Edit Tetriary Choice Scene"
+                    btnGo.onclick = () => {
+                        state.scene = tetriaryChoiceLink
+                        renderState()
+                    }
+                    liveEditorSection.appendChild(btnGo)
+                } else {
+                    let btnAdd = document.createElement('button')
+                    btnAdd.textContent = "Add Tetriary Choice Scene"
+                    btnAdd.style.background = "#dc3545"
+                    btnAdd.style.color = "white"
+                    btnAdd.onclick = addTetriaryScene
+                    liveEditorSection.appendChild(btnAdd)
+                }
             }
             const renderSceneMusicSection = async () => {
                 return new Promise((resolve) => {
