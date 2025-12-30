@@ -44,16 +44,17 @@
                 }
             }
 
-            let projectsRepository = createRepository("projects")
-            let scenesRepository = createRepository("scenes")
-            let backgroundsRepository = createRepository("backgrounds")
-            let projectFirstSceneRepository = createRepository("projectFirstScene")
-            let sceneBackgroundImageRepository = createRepository("sceneBackgroundImage")
-            let primaryChoiceLinkRepository = createRepository("primaryChoiceLink")
-            let secondaryChoiceLinkRepository = createRepository("secondaryChoiceLink")
-            let tetriaryChoiceLinkRepository = createRepository("tetriaryChoiceLink")
-            let translatedStringsRepository = createRepository("translatedStrings")
-            let blobRepository = createRepository("blob")
+            const storeNames = [
+                "projects", "scenes", "backgrounds", "projectFirstScene",
+                "sceneBackgroundImage", "scenePrimaryImage", "sceneSecondaryImage",
+                "sceneTeriaryImage", "sceneMusic", "sceneSound",
+                "primaryChoiceLink", "secondaryChoiceLink", "tetriaryChoiceLink",
+                "translatedStrings", "blob"
+            ]
+
+            const repositories = Object.fromEntries(
+                storeNames.map(name => [name, createRepository(name)])
+            )
 
             const debugPrint = (info) => {
                 if (verbose) {
@@ -78,9 +79,95 @@
                 scene : none,
                 language: 'en'
             }
+            const importDatabaseFromJson = async (jsonFile) => {
+                const reader = new FileReader()
+
+                reader.onload = async (e) => {
+                    const importData = JSON.parse(e.target.result)
+
+                    for (const storeName of Object.keys(importData)) {
+                        const records = importData[storeName]
+
+                        for (const record of records) {
+                            if (record.data && typeof record.data === 'string' && record.data.startsWith('data:')) {
+                                record.data = base64ToBlob(record.data)
+                            }
+
+                            await repositories[storeName].update(record)
+                        }
+                    }
+                    debugPrint("Database imported successfully.")
+                }
+
+                reader.readAsText(jsonFile)
+            }
+
+            const base64ToBlob = (base64String) => {
+                // Split the prefix (e.g. "data:image/png;base64,") from the actual data
+                const parts = base64String.split(',')
+                const contentType = parts[0].indexOf(':') !== -1 ? parts[0].split(':')[1].split(';')[0] : 'application/octet-stream'
+
+                // Get the raw base64 string (the second part)
+                const rawBase64 = parts.length > 1 ? parts[1] : parts[0]
+
+                // Remove any whitespace or newlines that might cause "invalid character" errors
+                const cleanedBase64 = rawBase64.replace(/\s/g, '')
+
+                try {
+                    const byteCharacters = atob(cleanedBase64)
+                    const byteNumbers = new Array(byteCharacters.length)
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i)
+                    }
+                    const byteArray = new Uint8Array(byteNumbers)
+                    return new Blob([byteArray], { type: contentType })
+                } catch (e) {
+                    console.error("Failed to decode base64 string:", e)
+                    return null
+                }
+            }
+            const exportDatabaseToJson = async () => {
+                const exportData = {}
+
+                for (const storeName of storeNames) {
+                    const records = await repositories[storeName].getAll()
+
+                    exportData[storeName] = await Promise.all(records.map(async (record) => {
+                        if (record.data && record.data instanceof Blob) {
+                            return {
+                                ...record,
+                                data: await blobToBase64(record.data)
+                            }
+                        }
+                        return record
+                    }))
+                }
+
+                const jsonString = JSON.stringify(exportData, null, 2)
+
+                const blob = new Blob([jsonString], { type: "application/json" })
+                const url = URL.createObjectURL(blob)
+                const link = document.createElement("a")
+                link.href = url
+                link.download = `vn_export_${new Date().getTime()}.json`
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+                URL.revokeObjectURL(url)
+                debugPrint("Database exported successfully.")
+            }
+
+            const blobToBase64 = (blob) => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader()
+                    reader.onloadend = () => resolve(reader.result)
+                    reader.onerror = reject
+                    reader.readAsDataURL(blob)
+                })
+            }
             const createFirstSceneForSelectedProject = async () => {
                 return new Promise((resolve) => {
-                    projectFirstSceneRepository.create({id: doID() })
+                    repoitories.projectFirstScene.create({id: doID() })
                     renderState()
                     resolve()
                 })
@@ -89,9 +176,9 @@
                 return new Promise((resolve) => {
                     const projectID = doID()
                     const firstSceneID = doID()
-                    projectsRepository.create({id: projectID })
-                    scenesRepository.create({id: firstSceneID })
-                    projectFirstSceneRepository.create({id: projectID, destination: firstSceneID })
+                    repositories.projects.create({id: projectID })
+                    repositories.scenes.create({id: firstSceneID })
+                    repositories.projectFirstScene.create({id: projectID, destination: firstSceneID })
                     renderState()
                     resolve()
                 })
@@ -105,26 +192,26 @@
                     renderState()
                     return
                 }
-                state.scene = (await projectFirstSceneRepository.read(state.project))?.destination
+                state.scene = (await repositories.projectFirstScene.read(state.project))?.destination
                 renderState()
             }
             const deleteSelectedProject = () => {
                 if (state.project == none) {
                     return
                 }
-                projectsRepository.delete(state.project)
+                repositories.projects.delete(state.project)
                 renderState()
                 resolve()
             }
             const uploadFile = async (file) => {
                 if (!file) return
                 const blobID = doID()
-                await blobRepository.create({
+                await repositories.blob.create({
                     id: blobID,
                     data: file
                 })
 
-                await backgroundsRepository.create({
+                await repositories.backgrounds.create({
                         id: blobID
                 })
                 renderState()
@@ -133,7 +220,7 @@
                 let projectsSection = document.getElementById('projectsSection')
                 projectsSection.innerHTML = ''
 
-                const projects = await projectsRepository.getAll()
+                const projects = await repositories.projects.getAll()
                 debugPrint(projects)
                 let select = document.createElement('select')
                 select.onchange = () => {
@@ -172,13 +259,37 @@
                 deleteProjectButton.textContent = "Delete Project"
                 deleteProjectButton.onclick = deleteSelectedProject
                 projectsSection.appendChild(deleteProjectButton)
+
+                let exportButton = document.createElement("button")
+                exportButton.textContent = "Export Data (JSON)"
+                exportButton.style.background = "#6c757d"
+                exportButton.style.color = "white"
+                exportButton.onclick = exportDatabaseToJson
+                projectsSection.appendChild(exportButton)
+
+                let btnImport = document.createElement("button")
+                btnImport.textContent = "Import Data (JSON)"
+                btnImport.style.background = "#007bff"
+                btnImport.style.color = "white"
+
+                let fileInput = document.createElement("input")
+                fileInput.type = "file"
+                fileInput.accept = ".json"
+                fileInput.style.display = "none"
+                fileInput.onchange = (e) => {
+                    if (e.target.files[0]) importDatabaseFromJson(e.target.files[0])
+                }
+
+                btnImport.onclick = () => fileInput.click()
+                projectsSection.appendChild(btnImport)
+                projectsSection.appendChild(fileInput)
             }
             const uploadBackgroundImage = () => {
                 debugPrint("uploadBackgroundImage")
             }
 
             const selectBackground = async (background) => {
-                await sceneBackgroundImageRepository.update({ id: state.scene, destination: background})
+                await repositories.sceneBackgroundImage.update({ id: state.scene, destination: background})
                 renderState()
             }
             const renderSceneBackgroundSection = async () => {
@@ -189,18 +300,16 @@
                     let liveEditorSection = document.getElementById('liveEditorSection')
                     liveEditorSection.innerHTML = ''
 
-                    let sceneBackgroundImage = (await sceneBackgroundImageRepository.read(state.scene))?.destination
+                    let sceneBackgroundImage = (await repositories.sceneBackgroundImage.read(state.scene))?.destination
                     if (sceneBackgroundImage) {
-                        let blobData = (await blobRepository.read(sceneBackgroundImage))?.data
+                        let blobData = (await repositories.blob.read(sceneBackgroundImage))?.data
                         debugPrint(`Scene background: ${sceneBackgroundImage}`)
                         let liveEditorSection = document.getElementById('liveEditorSection')
                         let p = document.createElement('p')
 
-                        let imgContainer = document.createElement('div')
-                        imgContainer.style.margin = "10px 0"
-
                         let img = document.createElement('img')
                         img.src = URL.createObjectURL(blobData)
+                        img.style.width = "70%"
 
                         p.textContent = `Background: ${sceneBackgroundImage}`
                         liveEditorSection.appendChild(img)
@@ -212,7 +321,7 @@
                         liveEditorSection.appendChild(p)
                     }
 
-                    let backgrounds = await backgroundsRepository.getAll()
+                    let backgrounds = await repositories.backgrounds.getAll()
                     debugPrint(backgrounds)
                     let select = document.createElement('select')
                     select.onchange = () => {
@@ -261,11 +370,11 @@
             }
             const sceneText = async() => {
                 const key = await sceneTextKey()
-                const text = (await translatedStringsRepository.read(key))?.destination
+                const text = (await repositories.translatedStrings.read(key))?.destination
                 return text
             }
             const handleSceneTextChange = async (event) => {
-                await translatedStringsRepository.update({id: sceneTextKey(), destination: event.target.value})
+                await repositories.translatedStrings.update({id: sceneTextKey(), destination: event.target.value})
             }
             const renderSceneTextSection  = async () => {
                     let liveEditorSection = document.getElementById('liveEditorSection')
@@ -302,8 +411,8 @@
             }
             const addNextScene = async () => {
                 const id = doID()
-                await scenesRepository.create({id: id})
-                await primaryChoiceLinkRepository.create({
+                await repositories.scenes.create({id: id})
+                await repositories.primaryChoiceLink.create({
                         id: state.scene,
                         destination: id
                 })
@@ -311,8 +420,8 @@
             }
             const addSecondaryScene = async () => {
                 const id = doID()
-                await scenesRepository.create({id: id})
-                await secondaryChoiceLinkRepository.create({
+                await repositories.scenes.create({id: id})
+                await repositories.secondaryChoiceLink.create({
                     id: state.scene,
                     destination: id
                 })
@@ -320,15 +429,15 @@
             }
             const addTetriaryScene = async () => {
                 const id = doID()
-                await scenesRepository.create({id: id})
-                await tetriaryChoiceLinkRepository.create({
+                await repositories.scenes.create({id: id})
+                await repositories.tetriaryChoiceLink.create({
                     id: state.scene,
                     destination: id
                 })
                 renderState()
             }
             const renderScenePrimaryChoiceSection = async () => {
-                const primaryChoiceLink = (await primaryChoiceLinkRepository.read(state.scene))?.destination
+                const primaryChoiceLink = (await repositories.primaryChoiceLink.read(state.scene))?.destination
                 if (primaryChoiceLink) {
                         let p = document.createElement('p');
                         p.textContent = `Next Scene: ${primaryChoiceLink}`
@@ -351,7 +460,7 @@
                 }
             }
             const renderSceneSecondaryChoiceSection = async () => {
-                const secondaryChoiceLink = (await secondaryChoiceLinkRepository.read(state.scene))?.destination
+                const secondaryChoiceLink = (await repositories.secondaryChoiceLink.read(state.scene))?.destination
                 if (secondaryChoiceLink) {
                     let p = document.createElement('p');
                     p.textContent = `Secondary Choice Link: ${secondaryChoiceLink}`
@@ -374,7 +483,7 @@
                 }
             }
             const renderSceneTetriaryChoiceSection = async () => {
-                const tetriaryChoiceLink = (await tetriaryChoiceLinkRepository.read(state.scene))?.destination
+                const tetriaryChoiceLink = (await repositories.tetriaryChoiceLink.read(state.scene))?.destination
                 if (tetriaryChoiceLink) {
                     let p = document.createElement('p');
                     p.textContent = `Tetriary Choice Link: ${tetriaryChoiceLink}`
